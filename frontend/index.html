@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Knowledge Graph</title>
+  <script src="https://unpkg.com/force-graph"></script>
+  <style>
+    body { margin: 0; }
+    #graph { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="graph"></div>
+  <script>
+    fetch("http://127.0.0.1:8000/graph", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: "FastAPI was created by Tiangolo and is built on Starlette"
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+        const Graph = ForceGraph()(document.getElementById("graph"))
+  .graphData({
+    nodes: data.nodes.map(n => ({
+      ...n,
+      x: Math.random() * 400,
+      y: Math.random() * 400
+    })),
+    links: data.links
+  })
+  .nodeLabel(node => `${node.label} (${node.type})`)
+  .nodeAutoColorBy("type")
+  .d3Charge(-300)
+  .cooldownTicks(200);
+    });
+  </script>
+</body>
+</html>
