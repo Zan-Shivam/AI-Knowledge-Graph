@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List
 from app.entity_extractor import extract_entities
 from app.relationship_extractor import extract_relationships
+from app.graph_builder import build_graph
 import spacy
 
 nlp = spacy.load("en_core_web_sm")
@@ -18,7 +19,7 @@ app.add_middleware(
 )
 
 class TextInput(BaseModel):
-    text:str
+    text:str = "FastAPI was created by Tiangolo and is built on Starlette"
 
 @app.post("/graph")
 def generate_graph(input: TextInput):
@@ -27,7 +28,4 @@ def generate_graph(input: TextInput):
     nodes = extract_entities(input.text)
     links = extract_relationships(doc)
 
-    return {
-        "nodes": nodes,
-        "links": links
-    }
+    return build_graph(nodes,links)
