@@ -9,7 +9,9 @@ import spacy
 import tempfile
 import os
 from app.document_loader import extract_text_from_pdf
+from app.chunker import chunk_text
 from app.llm_extractor import extract_with_llm
+from app.graph_merge import merge_graphs
 
 nlp = spacy.load("en_core_web_sm")
 app = FastAPI(title="AI Knowledge Graph")
@@ -27,11 +29,18 @@ class TextInput(BaseModel):
 
 @app.post("/graph")
 def generate_graph(input: TextInput):
-    result = extract_with_llm(input.text)
+    chunks = chunk_text(input.text)
+
+    partial_graphs = []
+    for chunk in chunks:
+        result = extract_with_llm(chunk)
+        partial_graphs.append(result)
+
+    merged = merge_graphs(partial_graphs)
 
     return build_graph(
-        result.get("entities", []),
-        result.get("relations", [])
+        merged["entities"],
+        merged["relations"]
     )
 
 @app.post("/graph/pdf")
