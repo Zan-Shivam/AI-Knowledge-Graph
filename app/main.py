@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -6,6 +6,10 @@ from app.entity_extractor import extract_entities
 from app.relationship_extractor import extract_relationships
 from app.graph_builder import build_graph
 import spacy
+import tempfile
+import os
+from app.document_loader import extract_text_from_pdf
+from app.llm_extractor import extract_with_llm
 
 nlp = spacy.load("en_core_web_sm")
 app = FastAPI(title="AI Knowledge Graph")
@@ -23,9 +27,26 @@ class TextInput(BaseModel):
 
 @app.post("/graph")
 def generate_graph(input: TextInput):
-    doc = nlp(input.text)
+    result = extract_with_llm(input.text)
 
-    nodes = extract_entities(input.text)
-    links = extract_relationships(doc)
+    return build_graph(
+        result.get("entities", []),
+        result.get("relations", [])
+    )
 
-    return build_graph(nodes,links)
+@app.post("/graph/pdf")
+async def generate_graph_from_pdf(file: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        text = extract_text_from_pdf(tmp_path)
+        doc = nlp(text)
+
+        nodes = extract_entities(text)
+        links = extract_relationships(doc)
+
+        return build_graph(nodes, links)
+    finally:
+        os.remove(tmp_path)
