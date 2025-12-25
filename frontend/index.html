@@ -2,39 +2,86 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Knowledge Graph</title>
+  <title>Knowledge Graph - Static Test</title>
   <script src="https://unpkg.com/force-graph"></script>
   <style>
-    body { margin: 0; }
+    body { margin: 0; background-color: #101020; color: white; font-family: sans-serif; }
     #graph { width: 100vw; height: 100vh; }
+    .controls { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; }
   </style>
 </head>
 <body>
+  <div class="controls">
+    <b>Mode:</b> Hardcoded Data Test
+  </div>
   <div id="graph"></div>
+
   <script>
-    fetch("http://127.0.0.1:8000/graph", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: "FastAPI was created by Tiangolo and is built on Starlette"
-      })
-    })
-    .then(res => res.json())
-    .then(data => {
-        const Graph = ForceGraph()(document.getElementById("graph"))
-  .graphData({
-    nodes: data.nodes.map(n => ({
-      ...n,
-      x: Math.random() * 400,
-      y: Math.random() * 400
-    })),
-    links: data.links
-  })
-  .nodeLabel(node => `${node.label} (${node.type})`)
-  .nodeAutoColorBy("type")
-  .d3Charge(-300)
-  .cooldownTicks(200);
+    // 1. Your Hardcoded JSON Data
+    const rawData = { 
+      "entities": [ 
+        { "id": "Backend", "type": "system" }, { "id": "Application", "type": "software" }, 
+        { "id": "Service", "type": "cloud_service" }, { "id": "Runtime cloud", "type": "platform" }, 
+        { "id": "Storage", "type": "service" }, { "id": "Infrastructure", "type": "hardware" }, 
+        { "id": "Management", "type": "process" }, { "id": "Security", "type": "mechanism" }, 
+        { "id": "Internet", "type": "network" }, { "id": "SaaS", "type": "cloud_service" }, 
+        { "id": "PaaS", "type": "cloud_service" }, { "id": "IaaS", "type": "cloud_service" }, 
+        { "id": "Frontend", "type": "system" } 
+      ], 
+      "relations": [ 
+        { "source": "Backend", "target": "Application", "relation": "contains" }, 
+        { "source": "Backend", "target": "Service", "relation": "provides" }, 
+        { "source": "Backend", "target": "Runtime cloud", "relation": "includes" }, 
+        { "source": "Backend", "target": "Storage", "relation": "provides" }, 
+        { "source": "Backend", "target": "Infrastructure", "relation": "refers_to" }, 
+        { "source": "Backend", "target": "Management", "relation": "includes" }, 
+        { "source": "Backend", "target": "Security", "relation": "implements" }, 
+        { "source": "Internet", "target": "Backend", "relation": "connects_to" }, 
+        { "source": "Internet", "target": "Frontend", "relation": "connects_to" }, 
+        { "source": "Service", "target": "SaaS", "relation": "includes" }, 
+        { "source": "Service", "target": "PaaS", "relation": "includes" }, 
+        { "source": "Service", "target": "IaaS", "relation": "includes" } 
+      ] 
+    };
+
+    // 2. Format function to convert your JSON to Force-Graph format
+    function formatData(data) {
+      return {
+        nodes: data.entities.map(e => ({ id: e.id, type: e.type, label: e.id })),
+        links: data.relations.map(r => ({ source: r.source, target: r.target, label: r.relation }))
+      };
+    }
+
+    // 3. Initialize Graph
+    const gData = formatData(rawData);
+    const Graph = ForceGraph()(document.getElementById("graph"))
+      .graphData(gData)
+      .nodeId('id')
+      .nodeLabel(node => `<span style="color:white">${node.id} [${node.type}]</span>`)
+      .nodeAutoColorBy('type')
+      .linkDirectionalArrowLength(6)
+      .linkDirectionalArrowRelPos(1)
+      .linkLabel(link => link.label) // Shows relation on hover
+      .d3Charge(-400)
+      .d3VelocityDecay(0.3);
+
+    // Optional: Add text labels to nodes
+    Graph.nodeCanvasObject((node, ctx, globalScale) => {
+      const label = node.id;
+      const fontSize = 12/globalScale;
+      ctx.font = `${fontSize}px Sans-Serif`;
+      const textWidth = ctx.measureText(label).width;
+      const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2); 
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, ...bckgDimensions);
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = node.color;
+      ctx.fillText(label, node.x, node.y);
     });
+
   </script>
 </body>
 </html>
