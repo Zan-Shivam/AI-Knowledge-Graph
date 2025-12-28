@@ -1,87 +1,773 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Knowledge Graph - Static Test</title>
-  <script src="https://unpkg.com/force-graph"></script>
-  <style>
-    body { margin: 0; background-color: #101020; color: white; font-family: sans-serif; }
-    #graph { width: 100vw; height: 100vh; }
-    .controls { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Knowledge Graph</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+      :root {
+          --bg-dark: #0a0a0f;
+          --bg-gradient-1: #1a0b2e;
+          --bg-gradient-2: #0f172a;
+          --panel-bg: rgba(15, 15, 25, 0.85);
+          --accent-primary: #6366f1;
+          --accent-secondary: #ec4899;
+          --accent-tertiary: #8b5cf6;
+          --accent-glow: rgba(99, 102, 241, 0.4);
+          --text-main: #f8fafc;
+          --text-dim: #94a3b8;
+          --text-dimmer: #64748b;
+          --border: rgba(255, 255, 255, 0.08);
+          --border-bright: rgba(255, 255, 255, 0.15);
+          --success: #10b981;
+          --warning: #f59e0b;
+      }
+
+      * {
+          box-sizing: border-box;
+      }
+
+      body, html {
+          margin: 0;
+          padding: 0;
+          height: 100%;
+          background: linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-dark) 50%, var(--bg-gradient-2) 100%);
+          color: var(--text-main);
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          overflow: hidden;
+          -webkit-font-smoothing: antialiased;
+      }
+
+      /* Animated Background */
+      @keyframes gradientShift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+      }
+
+      /* Layout Structure */
+      .app-container {
+          display: flex;
+          height: 100vh;
+          width: 100vw;
+          position: relative;
+      }
+
+      /* Sidebar Styling */
+      aside {
+          width: 380px;
+          background: var(--panel-bg);
+          backdrop-filter: blur(20px) saturate(180%);
+          border-right: 1px solid var(--border-bright);
+          display: flex;
+          flex-direction: column;
+          z-index: 10;
+          padding: 2.5rem;
+          box-shadow: 20px 0 60px rgba(0,0,0,0.5);
+          position: relative;
+          overflow-y: auto;
+      }
+
+      aside::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 200px;
+          background: radial-gradient(ellipse at top, rgba(99, 102, 241, 0.15), transparent);
+          pointer-events: none;
+      }
+
+      .logo {
+          font-weight: 700;
+          font-size: 1.6rem;
+          letter-spacing: -0.03em;
+          margin-bottom: 2.5rem;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          position: relative;
+          z-index: 1;
+      }
+
+      .logo-icon {
+          width: 32px;
+          height: 32px;
+          background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+          border-radius: 8px;
+          box-shadow: 0 0 24px var(--accent-glow), 0 4px 12px rgba(0,0,0,0.3);
+          position: relative;
+          animation: pulse 3s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+          0%, 100% { transform: scale(1); box-shadow: 0 0 24px var(--accent-glow); }
+          50% { transform: scale(1.05); box-shadow: 0 0 32px var(--accent-glow); }
+      }
+
+      .logo-icon::after {
+          content: '';
+          position: absolute;
+          inset: 6px;
+          background: var(--bg-dark);
+          border-radius: 4px;
+      }
+
+      /* Controls Styling */
+      .section-label {
+          text-transform: uppercase;
+          font-size: 0.7rem;
+          letter-spacing: 0.12em;
+          color: var(--text-dimmer);
+          margin-bottom: 0.75rem;
+          margin-top: 1.5rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+      }
+
+      .section-label::before {
+          content: '';
+          width: 3px;
+          height: 12px;
+          background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
+          border-radius: 2px;
+      }
+
+      textarea {
+          background: rgba(0,0,0,0.3);
+          border: 1.5px solid var(--border);
+          border-radius: 12px;
+          color: white;
+          padding: 16px;
+          resize: none;
+          font-family: inherit;
+          font-size: 0.95rem;
+          margin-bottom: 1rem;
+          transition: all 0.3s ease;
+          line-height: 1.6;
+      }
+
+      textarea:focus {
+          outline: none;
+          border-color: var(--accent-primary);
+          background: rgba(0,0,0,0.4);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+      }
+
+      textarea::placeholder {
+          color: var(--text-dimmer);
+      }
+
+      .file-input-wrapper {
+          position: relative;
+          margin-bottom: 1rem;
+      }
+
+      input[type="file"] {
+          font-size: 0.85rem;
+          color: var(--text-dim);
+          padding: 12px;
+          background: rgba(0,0,0,0.2);
+          border: 1.5px dashed var(--border);
+          border-radius: 10px;
+          width: 100%;
+          cursor: pointer;
+          transition: all 0.3s ease;
+      }
+
+      input[type="file"]:hover {
+          border-color: var(--border-bright);
+          background: rgba(0,0,0,0.3);
+      }
+
+      button {
+          background: linear-gradient(135deg, var(--accent-primary), var(--accent-tertiary));
+          color: white;
+          border: none;
+          padding: 14px 20px;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          margin-bottom: 0.75rem;
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+          width: 100%;
+      }
+
+      button::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+          transition: left 0.5s;
+      }
+
+      button:hover::before {
+          left: 100%;
+      }
+
+      button:hover { 
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+      }
+
+      button:active { 
+          transform: translateY(0);
+      }
+
+      button.secondary {
+          background: transparent;
+          border: 1.5px solid var(--border-bright);
+          box-shadow: none;
+      }
+
+      button.secondary:hover {
+          background: rgba(99, 102, 241, 0.1);
+          border-color: var(--accent-primary);
+      }
+
+      #status {
+          margin-top: auto;
+          font-size: 0.85rem;
+          padding: 1.2rem;
+          background: rgba(99, 102, 241, 0.05);
+          border-radius: 12px;
+          color: var(--text-dim);
+          border: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          backdrop-filter: blur(10px);
+      }
+
+      .status-indicator {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: var(--success);
+          box-shadow: 0 0 12px var(--success);
+          animation: statusPulse 2s ease-in-out infinite;
+      }
+
+      @keyframes statusPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+      }
+
+      .divider {
+          margin: 1.5rem 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, var(--border-bright), transparent);
+      }
+
+      /* Graph Canvas */
+      main {
+          flex-grow: 1;
+          position: relative;
+          background-image: 
+              radial-gradient(circle at 2px 2px, rgba(99, 102, 241, 0.08) 1px, transparent 0);
+          background-size: 48px 48px;
+          overflow: hidden;
+      }
+
+      main::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.03), transparent 70%);
+          pointer-events: none;
+      }
+
+/* Wrapper to contain both trigger and container */
+.search-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+}
+
+/* The Sensor/Hotzone */
+.search-trigger {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 50px;
+  background: transparent;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 0;
+}
+
+/* The Visual Hint (The Handle) - Refined */
+.search-hint {
+  width: 120px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 0 0 2px 2px;
+  opacity: 1;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+/* Subtle hover state */
+.search-hint:hover {
+  background: rgba(255, 255, 255, 0.25);
+  width: 56px;
+  height: 4px;
+}
+
+/* Container for the search bar */
+.search-container {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 101;
+  width: 420px;
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+/* Hide hint smoothly when hovering */
+.search-wrapper:hover .search-hint {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+/* Show search container when hovering wrapper OR when active */
+.search-wrapper:hover .search-container,
+.search-container:focus-within,
+.search-container:has(#nodeSearch:not(:placeholder-shown)) {
+  top: 16px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Hide the hint handle if the bar is active */
+.search-wrapper:has(#nodeSearch:focus) .search-hint,
+.search-wrapper:has(#nodeSearch:not(:placeholder-shown)) .search-hint {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+#nodeSearch {
+  width: 100%;
+  background: rgba(20, 20, 30, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: white;
+  padding: 13px 18px 13px 44px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  outline: none;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+/* Search icon using CSS */
+#nodeSearch::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+#nodeSearch::after {
+  content: '';
+  position: absolute;
+  left: 29px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 2px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+#nodeSearch:focus {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(25, 25, 35, 0.98);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+#nodeSearch::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+}
+      .node-circle {
+          stroke: var(--bg-dark);
+          stroke-width: 3px;
+          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
+          cursor: grab;
+          transition: all 0.2s ease;
+      }
+
+      .node-circle:hover {
+          stroke-width: 4px;
+          filter: drop-shadow(0 6px 16px rgba(99, 102, 241, 0.5));
+      }
+
+      .node-circle:active {
+          cursor: grabbing;
+      }
+
+      .link-line {
+          stroke: url(#linkGradient);
+          stroke-opacity: 0.4;
+          stroke-width: 2px;
+          transition: all 0.3s ease;
+      }
+
+      .link-line:hover {
+          stroke-opacity: 0.7;
+          stroke-width: 2.5px;
+      }
+
+      .node-label {
+          fill: var(--text-main);
+          font-size: 12px;
+          font-weight: 600;
+          text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.5);
+          pointer-events: none;
+          letter-spacing: 0.02em;
+      }
+
+      .relation-label {
+          fill: var(--text-dim);
+          font-size: 10px;
+          font-weight: 500;
+          font-style: italic;
+          opacity: 0.7;
+          pointer-events: none;
+          text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      }
+
+      /* Tooltip */
+      .tooltip {
+          position: absolute;
+          background: rgba(15, 15, 25, 0.95);
+          backdrop-filter: blur(12px);
+          border: 1px solid var(--border-bright);
+          border-radius: 8px;
+          padding: 12px 16px;
+          pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.2s;
+          z-index: 1000;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+          font-size: 0.85rem;
+      }
+
+      .tooltip.visible {
+          opacity: 1;
+      }
+
+      /* Stats Panel */
+      .stats-panel {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          background: var(--panel-bg);
+          backdrop-filter: blur(20px);
+          border: 1px solid var(--border-bright);
+          border-radius: 12px;
+          padding: 16px 20px;
+          display: flex;
+          gap: 24px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+          z-index: 5;
+      }
+
+      .stat-item {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+      }
+
+      .stat-label {
+          font-size: 0.7rem;
+          color: var(--text-dimmer);
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          font-weight: 600;
+      }
+
+      .stat-value {
+          font-size: 1.5rem;
+          font-weight: 700;
+          background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+      }
   </style>
 </head>
 <body>
-  <div class="controls">
-    <b>Mode:</b> Hardcoded Data Test
-  </div>
-  <div id="graph"></div>
 
-  <script>
-    // 1. Your Hardcoded JSON Data
-    const rawData = { 
-      "entities": [ 
-        { "id": "Backend", "type": "system" }, { "id": "Application", "type": "software" }, 
-        { "id": "Service", "type": "cloud_service" }, { "id": "Runtime cloud", "type": "platform" }, 
-        { "id": "Storage", "type": "service" }, { "id": "Infrastructure", "type": "hardware" }, 
-        { "id": "Management", "type": "process" }, { "id": "Security", "type": "mechanism" }, 
-        { "id": "Internet", "type": "network" }, { "id": "SaaS", "type": "cloud_service" }, 
-        { "id": "PaaS", "type": "cloud_service" }, { "id": "IaaS", "type": "cloud_service" }, 
-        { "id": "Frontend", "type": "system" } 
-      ], 
-      "relations": [ 
-        { "source": "Backend", "target": "Application", "relation": "contains" }, 
-        { "source": "Backend", "target": "Service", "relation": "provides" }, 
-        { "source": "Backend", "target": "Runtime cloud", "relation": "includes" }, 
-        { "source": "Backend", "target": "Storage", "relation": "provides" }, 
-        { "source": "Backend", "target": "Infrastructure", "relation": "refers_to" }, 
-        { "source": "Backend", "target": "Management", "relation": "includes" }, 
-        { "source": "Backend", "target": "Security", "relation": "implements" }, 
-        { "source": "Internet", "target": "Backend", "relation": "connects_to" }, 
-        { "source": "Internet", "target": "Frontend", "relation": "connects_to" }, 
-        { "source": "Service", "target": "SaaS", "relation": "includes" }, 
-        { "source": "Service", "target": "PaaS", "relation": "includes" }, 
-        { "source": "Service", "target": "IaaS", "relation": "includes" } 
-      ] 
-    };
+<div class="app-container">
+    <aside>
+        <div class="logo">
+            <div class="logo-icon"></div>
+            AI Knowledge Graph
+        </div>
+        <div class="section-label">Extract from Intelligence</div>
+        <textarea id="textInput" rows="5" placeholder="Paste complex text or raw data..."></textarea>
+        <button onclick="generateFromText()">Construct Graph</button>
 
-    // 2. Format function to convert your JSON to Force-Graph format
-    function formatData(data) {
-      return {
-        nodes: data.entities.map(e => ({ id: e.id, type: e.type, label: e.id })),
-        links: data.relations.map(r => ({ source: r.source, target: r.target, label: r.relation }))
-      };
+        <div style="margin: 1.5rem 0; border-top: 1px solid var(--border);"></div>
+
+        <div class="section-label">Document Analysis</div>
+        <div class="file-input-wrapper">
+            <input type="file" id="pdfFile" accept="application/pdf">
+        </div>
+        <button onclick="generateFromPDF()" style="background: transparent; border: 1px solid var(--border);">Upload PDF Source</button>
+        <div id="status">System Ready</div>
+    </aside>
+
+    <main id="graph-container">
+      <div class="search-wrapper">
+          <div class="search-trigger">
+              <div class="search-hint"></div>
+          </div> 
+          
+          <div class="search-container">
+            <input type="text" id="nodeSearch" placeholder="Search entity name..." 
+            oninput="searchNodes()" 
+            onblur="this.value=''; searchNodes();">
+          </div>
+      </div>
+      <svg id="canvas"></svg>
+  </main>
+</div>
+
+<script>
+    const API_BASE = "http://127.0.0.1:8000";
+    let width = window.innerWidth - 360;
+    let height = window.innerHeight;
+
+    const svg = d3.select("#canvas")
+        .attr("width", width)
+        .attr("height", height);
+    
+    const g = svg.append("g");
+
+// Definitions for gradients and markers
+const defs = svg.append("defs");
+
+// 1. Define the Link Gradient
+const gradient = defs.append("linearGradient")
+    .attr("id", "linkGradient")
+    .attr("gradientUnits", "userSpaceOnUse"); // Important for lines
+
+gradient.append("stop")
+    .attr("offset", "0%")
+    .attr("stop-color", "var(--accent-primary)");
+
+gradient.append("stop")
+    .attr("offset", "100%")
+    .attr("stop-color", "var(--accent-secondary)");
+
+    defs.append("marker")
+    .attr("id", "arrowhead")
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 10) // Tip of the arrow sits at the node edge
+    .attr("refY", 0)
+    .attr("markerWidth", 6)
+    .attr("markerHeight", 6)
+    .attr("orient", "auto")
+    .append("path")
+    .attr("d", "M0,-5L10,0L0,5")
+    .attr("fill", "rgba(161, 161, 170, 0.8)"); // Higher opacity looks cleaner
+    svg.call(d3.zoom().scaleExtent([0.1, 4]).on("zoom", (event) => g.attr("transform", event.transform)));
+
+    async function generateFromText() {
+        const text = document.getElementById('textInput').value;
+        if(!text) return;
+        updateStatus("Initializing extraction engine...");
+        try {
+            const res = await fetch(`${API_BASE}/graph`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const data = await res.json();
+            renderGraph(data);
+        } catch(e) { updateStatus("Error connecting to API"); }
     }
 
-    // 3. Initialize Graph
-    const gData = formatData(rawData);
-    const Graph = ForceGraph()(document.getElementById("graph"))
-      .graphData(gData)
-      .nodeId('id')
-      .nodeLabel(node => `<span style="color:white">${node.id} [${node.type}]</span>`)
-      .nodeAutoColorBy('type')
-      .linkDirectionalArrowLength(6)
-      .linkDirectionalArrowRelPos(1)
-      .linkLabel(link => link.label) // Shows relation on hover
-      .d3Charge(-400)
-      .d3VelocityDecay(0.3);
+    async function generateFromPDF() {
+        const fileInput = document.getElementById('pdfFile');
+        if (!fileInput.files[0]) return;
+        
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
 
-    // Optional: Add text labels to nodes
-    Graph.nodeCanvasObject((node, ctx, globalScale) => {
-      const label = node.id;
-      const fontSize = 12/globalScale;
-      ctx.font = `${fontSize}px Sans-Serif`;
-      const textWidth = ctx.measureText(label).width;
-      const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2); 
+        updateStatus("Parsing document architecture...");
+        const res = await fetch(`${API_BASE}/graph/pdf`, { method: 'POST', body: formData });
+        const data = await res.json();
+        renderGraph(data);
+    }
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y - bckgDimensions[1] / 2, ...bckgDimensions);
+    function updateStatus(msg) { 
+        document.getElementById('status').innerHTML = `<span style="color:var(--accent)">●</span> ${msg}`; 
+    }
 
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = node.color;
-      ctx.fillText(label, node.x, node.y);
+    function renderGraph(data) {
+      g.selectAll("*").remove();
+  
+      // 1. Identify "Connected" Nodes
+      // Create a Set of all node IDs that appear as either a source or a target
+      const connectedNodeIds = new Set();
+      data.links.forEach(link => {
+          // Handle both object references and ID strings
+          connectedNodeIds.add(typeof link.source === 'object' ? link.source.id : link.source);
+          connectedNodeIds.add(typeof link.target === 'object' ? link.target.id : link.target);
+      });
+  
+      // 2. Filter the nodes list
+      const filteredNodes = data.nodes.filter(node => connectedNodeIds.has(node.id));
+      
+      // Update status with count of filtered vs total
+      const orphanCount = data.nodes.length - filteredNodes.length;
+      updateStatus(`${filteredNodes.length} entities mapped (${orphanCount} orphans hidden)`);
+  
+      const color = d3.scaleOrdinal()
+          .range(['#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b']);
+  
+      // 3. Use filteredNodes for the simulation
+      const simulation = d3.forceSimulation(filteredNodes)
+          .force("link", d3.forceLink(data.links).id(d => d.id).distance(180))
+          .force("charge", d3.forceManyBody().strength(-400))
+          .force("center", d3.forceCenter(width / 2, height / 2))
+          .force("collision", d3.forceCollide().radius(50));
+  
+      const link = g.append("g").selectAll("line")
+          .data(data.links).enter().append("line")
+          .attr("class", "link-line")
+          .attr("marker-end", "url(#arrowhead)");
+  
+      const edgeLabels = g.append("g").selectAll(".relation-label")
+          .data(data.links).enter().append("text")
+          .attr("class", "relation-label")
+          .text(d => d.relation);
+  
+      // 4. Use filteredNodes for rendering circles
+      const node = g.append("g").selectAll("circle")
+          .data(filteredNodes).enter().append("circle")
+          .attr("class", "node-circle")
+          .attr("r", 10)
+          .attr("fill", d => color(d.type))
+          .call(d3.drag()
+              .on("start", dragstarted)
+              .on("drag", dragged)
+              .on("end", dragended));
+  
+      // 5. Use filteredNodes for labels
+      const label = g.append("g").selectAll(".node-label")
+          .data(filteredNodes).enter().append("text")
+          .attr("class", "node-label")
+          .attr("dy", -15)
+          .attr("text-anchor", "middle")
+          .text(d => d.label);
+  
+      simulation.on("tick", () => {
+          link.attr("x1", d => d.source.x)
+              .attr("y1", d => d.source.y)
+              .attr("x2", d => {
+                  const dx = d.target.x - d.source.x;
+                  const dy = d.target.y - d.source.y;
+                  const distance = Math.sqrt(dx * dx + dy * dy);
+                  if (distance === 0) return d.target.x;
+                  const offset = 20; 
+                  return d.target.x - (dx / distance) * offset;
+              })
+              .attr("y2", d => {
+                  const dx = d.target.x - d.source.x;
+                  const dy = d.target.y - d.source.y;
+                  const distance = Math.sqrt(dx * dx + dy * dy);
+                  if (distance === 0) return d.target.y;
+                  const offset = 20;
+                  return d.target.y - (dy / distance) * offset;
+              });
+  
+          node.attr("cx", d => d.x).attr("cy", d => d.y);
+          label.attr("x", d => d.x).attr("y", d => d.y);
+          
+          edgeLabels.attr("x", d => (d.source.x + d.target.x) / 2)
+                    .attr("y", d => (d.source.y + d.target.y) / 2);
+      });
+  
+      function dragstarted(e, d) { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+      function dragged(e, d) { d.fx = e.x; d.fy = e.y; }
+      function dragended(e, d) { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+  }
+
+    window.addEventListener('resize', () => {
+        width = window.innerWidth - 360;
+        height = window.innerHeight;
+        svg.attr("width", width).attr("height", height);
     });
 
-  </script>
+    function searchNodes() {
+      const searchTerm = document.getElementById('nodeSearch').value.toLowerCase();
+      
+      // Select all visual elements
+      const nodes = d3.selectAll(".node-circle");
+      const labels = d3.selectAll(".node-label");
+      const links = d3.selectAll(".link-line");
+      const edgeLabels = d3.selectAll(".relation-label");
+  
+      if (!searchTerm) {
+          // Reset styles if search is empty
+          nodes.style("opacity", 1).attr("r", 10);
+          labels.style("opacity", 1);
+          links.style("opacity", 0.4);
+          edgeLabels.style("opacity", 0.7);
+          return;
+      }
+  
+      // Apply filtering visuals
+      nodes.style("opacity", d => d.label.toLowerCase().includes(searchTerm) ? 1 : 0.1)
+           .attr("r", d => d.label.toLowerCase().includes(searchTerm) ? 15 : 10); // Grow matches
+  
+      labels.style("opacity", d => d.label.toLowerCase().includes(searchTerm) ? 1 : 0.1);
+  
+      // Dim links and edge labels during search
+      links.style("opacity", 0.05);
+      edgeLabels.style("opacity", 0.05);
+  }
+</script>
 </body>
 </html>

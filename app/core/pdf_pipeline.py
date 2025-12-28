@@ -1,6 +1,6 @@
-from app.llm_extractor import extract_with_llm
-from app.graph_merge import merge_graphs
-from app.chunker import chunk_text
+from app.extractor.llm_extractor import extract_with_llm
+from app.extractor.graph_merge import merge_graphs
+from app.core.chunker import chunk_text
 from concurrent.futures import ThreadPoolExecutor
 
 def _process_single_page(page):

@@ -8,39 +8,56 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
 )
 
-# --- Strong extraction prompt ---
-SYSTEM_PROMPT = """
+ENTITY_PROMPT = """
 You are an information extraction engine.
 
-Extract ONLY factual entities and explicit relationships stated in the text.
+Extract ONLY entities explicitly mentioned in the text.
 
-OUTPUT ONLY valid JSON that matches this EXACT schema:
+Rules:
+- Do NOT infer
+- Do NOT invent entities
+- Prefer concrete nouns over abstract concepts
+- Use concise, canonical names
+- Output JSON ONLY
 
+Schema:
 {
   "entities": [
     { "id": "string", "type": "string" }
-  ],
+  ]
+}
+"""
+
+RELATION_PROMPT_TEMPLATE = """
+You are an information extraction engine.
+
+Extract ONLY relationships that are explicitly stated in the text.
+
+IMPORTANT:
+- You may ONLY use entities from the list below
+- Do NOT introduce new entities
+- If a relationship involves an unknown entity, OMIT it
+- Do NOT infer or generalize
+
+ENTITIES:
+{entity_list}
+
+Schema:
+{{
   "relations": [
-    {
+    {{
       "source": "string",
       "target": "string",
       "relation": "string",
       "confidence": number
-    }
+    }}
   ]
-}
+}}
 
-RULES:
-- Do NOT infer or assume anything
-- Do NOT invent relationships
-- Use concise entity names
-- Relation must be a short verb phrase (snake_case preferred)
-- confidence must be between 0 and 1
-- If unsure, OMIT the entity or relation
-- Output raw JSON only.
-- Do NOT use markdown code fences.
-- Do NOT wrap the output in ``` blocks.
+Output JSON ONLY.
 """
+
+
 
 def _strip_code_fences(text: str) -> str:
     text = text.strip()
@@ -101,43 +118,59 @@ def _clean_output(data: dict) -> dict:
         "relations": clean_relations
     }
 
+def extract_entities_with_llm(text: str) -> list[dict]:
+    response = client.responses.create(
+        model="llama-3.3-70b-versatile",
+        input=[
+            {"role": "system", "content": ENTITY_PROMPT},
+            {"role": "user", "content": text},
+        ],
+        temperature=0.0,
+        max_output_tokens=400,
+    )
 
-def extract_with_llm(text: str) -> dict:
-    """
-    Extract entities and relations from text using Groq LLaMA-3.3-70B.
-    """
+    clean_output = _strip_code_fences(response.output_text)
+
+    try:
+        data = json.loads(clean_output)
+        return data.get("entities", [])
+    except json.JSONDecodeError:
+        return []
+
+def extract_relations_with_llm(text: str, entities: list[dict]) -> list[dict]:
+    entity_names = [e["id"] for e in entities]
+
+    prompt = RELATION_PROMPT_TEMPLATE.format(
+        entity_list=", ".join(entity_names)
+    )
 
     response = client.responses.create(
         model="llama-3.3-70b-versatile",
         input=[
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            },
-            {
-                "role": "user",
-                "content": text
-            }
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": text},
         ],
         temperature=0.0,
-        max_output_tokens=600,
+        max_output_tokens=400,
     )
 
-    raw_output = response.output_text.strip()
-    clean_output = _strip_code_fences(raw_output)
+    clean_output = _strip_code_fences(response.output_text)
 
-    # Defensive parsing (still important)
     try:
-        parsed = json.loads(clean_output)
+        data = json.loads(clean_output)
+        return data.get("relations", [])
     except json.JSONDecodeError:
-        print("⚠️ Invalid JSON from LLM")
+        return []
+
+def extract_with_llm(text: str) -> dict:
+    entities = extract_entities_with_llm(text)
+
+    if not entities:
         return {"entities": [], "relations": []}
 
-    # Final schema safety
-    if not isinstance(parsed, dict):
-        return {"entities": [], "relations": []}
+    relations = extract_relations_with_llm(text, entities)
 
-    parsed.setdefault("entities", [])
-    parsed.setdefault("relations", [])
-
-    return _clean_output(parsed)
+    return _clean_output({
+        "entities": entities,
+        "relations": relations
+    })

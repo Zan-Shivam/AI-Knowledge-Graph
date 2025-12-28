@@ -2,20 +2,16 @@ from fastapi import FastAPI,UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
-from app.entity_extractor import extract_entities
-from app.pdf_pipeline import process_pdf_pages
-from app.relationship_extractor import extract_relationships
-from app.graph_builder import build_graph
-import spacy
+from app.core.pdf_pipeline import process_pdf_pages
+from app.utils.graph_builder import build_graph
 import tempfile
 import os
-from app.document_loader import extract_pages_from_pdf
-from app.chunker import chunk_text
-from app.llm_extractor import extract_with_llm
-from app.graph_merge import merge_graphs
+from app.core.document_loader import extract_pages_from_pdf
+from app.core.chunker import chunk_text
+from app.extractor.llm_extractor import extract_with_llm
+from app.extractor.graph_merge import merge_graphs
 
 
-nlp = spacy.load("en_core_web_sm")
 app = FastAPI(title="AI Knowledge Graph")
 
 app.add_middleware(
@@ -57,8 +53,8 @@ async def generate_graph_from_pdf(file: UploadFile = File(...)):
         merged = process_pdf_pages(pages)
 
         return build_graph(
-            merged["entities"],
-            merged["relations"]
+        merged["entities"],
+        merged["relations"]
         )
     finally:
         os.remove(tmp_path)

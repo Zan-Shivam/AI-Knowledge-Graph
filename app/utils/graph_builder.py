@@ -1,6 +1,13 @@
 def normalize(text: str) -> str:
     return text.strip().strip(".,()")
 
+def prettify_relation(rel: str) -> str:
+    if not rel:
+        return rel
+
+    return rel.replace("_", " ").strip()
+
+
 def build_graph(entities, relations):
     nodes = {}
     
@@ -8,7 +15,7 @@ def build_graph(entities, relations):
         eid = normalize(e["id"])
         nodes[eid] = {
             "id": eid,
-            "label": eid,
+            "label": eid.replace("_", " "),
             "type": e.get("type", "Unknown")
         }
 
@@ -35,7 +42,7 @@ def build_graph(entities, relations):
         links.append({
             "source": normalize(r["source"]),
             "target": normalize(r["target"]),
-            "relation": r["relation"],
+            "relation": prettify_relation(r["relation"]),
             "confidence": r.get("confidence", 1.0)
         })
 
