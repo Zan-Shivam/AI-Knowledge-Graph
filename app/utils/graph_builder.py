@@ -46,6 +46,9 @@ def build_graph(entities, relations):
             "confidence": r.get("confidence", 1.0)
         })
 
+    print("nodes: ", list(nodes.values()))
+    print("links: ", links)
+
     return {
         "nodes": list(nodes.values()),
         "links": links
